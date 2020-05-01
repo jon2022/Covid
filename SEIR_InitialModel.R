@@ -38,17 +38,21 @@ simulate_population <- function(pop_size = 100000,   #population size
                                 asymp = 0.179,  #proportion asymptomatic
                                 ifr = 0.0066,  #IFR
                                 r0 = 2.5,  #R0
+                                r0_psup = 1.5,  #R0 with partial suppression (e.g. key workers)
                                 r0_sup = 0.1,  #R0_suppressed
-                                r0_group = 2.5,  #RO for groups
+                                r0_group = 3,  #RO within groups
                                 gr_size = 4,  #set group size
-                                prop_sup = 0.9,  #proportion of population suppressing
+                                prop_sup = 0.9,  #proportion of population fully suppressing
+                                prop_psup = 1,  #proportion of remaining population partially suppressing
                                 last_day = 90,  # how many days to simulate
                                 seed_numb = 1000  #starting population (seeding)
                                 )
 {
-  #generate population
+  #generate populations - all, unsupressed, partially supressed
   all_pop <- 1:pop_size
-  unsup_pop <- sample(all_pop,(1-prop_sup)*pop_size)
+  psup_pop <- sample(all_pop,(1-prop_sup)*pop_size*prop_psup)
+  unsup_pop <- sample(all_pop[all_pop %ni% psup_pop],(1-prop_sup)*pop_size*(1-prop_psup))
+  sup_pop <- all_pop[all_pop %ni% rbind(psup_pop,unsup_pop)]
   
   #mean infectious period
   inf_mean <- test_mean(log(inf_med),sdlog(inf_med, inf_95))
@@ -57,13 +61,13 @@ simulate_population <- function(pop_size = 100000,   #population size
   r0_daily <- r0/inf_mean
   
   #daily infection transmission - suppressed group
+  r0_daily_psup <- r0_psup/inf_mean
+  
+  #daily infection transmission - suppressed group
   r0_daily_sup <- r0_sup/inf_mean
   
   #daily infection transmission - within group
   r0_daily_group <- r0_group/inf_mean
-  
-  #size of suppressed population
-  pop_size_sup <- round(pop_size*prop_sup)
   
   #vector of case id's for new cases
   seed_cases <- sample(1:pop_size,seed_numb)
@@ -81,17 +85,21 @@ simulate_population <- function(pop_size = 100000,   #population size
   out_table <- data.table(day_number = 0L,
                           new = sum(cases$days_into==0),
                           cases %>%
-                            summarise(n_inc_sup = sum(incubating[id<=pop_size_sup]),
-                                      n_inc_unsup = sum(incubating[id>pop_size_sup]),
-                                      n_inf_sup = sum(infectious[id<=pop_size_sup]),
-                                      n_inf_unsup = sum(infectious[id>pop_size_sup]),
-                                      dead_sup = sum(died[id<=pop_size_sup] & rec_or_dead[id<=pop_size_sup]),
-                                      dead_unsup = sum(died[id>pop_size_sup] & rec_or_dead[id>pop_size_sup]),
-                                      recovered_sup = sum(!died[id<=pop_size_sup] & rec_or_dead[id<=pop_size_sup]),
-                                      recovered_unsup = sum(!died[id>pop_size_sup] & rec_or_dead[id>pop_size_sup])))
-  
-  
-  
+                            summarise(n_inc_sup = sum(incubating[id %in% sup_pop]),
+                                      n_inc_psup = sum(incubating[id %in% psup_pop]),
+                                      n_inc_unsup = sum(incubating[id %in% unsup_pop]),
+                                      n_inf_sup = sum(infectious[id %in% sup_pop]),
+                                      n_inf_psup = sum(infectious[id %in% psup_pop]),
+                                      n_inf_unsup = sum(infectious[id %in% unsup_pop]),
+                                      dead_sup = sum(died[id %in% sup_pop] & rec_or_dead[id %in% sup_pop]),
+                                      dead_psup = sum(died[id %in% psup_pop] & rec_or_dead[id %in% psup_pop]),
+                                      dead_unsup = sum(died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop]),
+                                      recovered_sup = sum(!died[id %in% sup_pop] & rec_or_dead[id %in% sup_pop]),
+                                      recovered_psup = sum(!died[id %in% psup_pop] & rec_or_dead[id %in% psup_pop]),
+                                      recovered_unsup = sum(!died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop])))
+
+
+
   # loop to populate table of outcomes
   for(i in 1:last_day){
     
@@ -136,19 +144,23 @@ simulate_population <- function(pop_size = 100000,   #population size
              rec_or_dead = days_into >= (incubation + infective))
     
     
-    out_table <- rbind(out_table, data.table(day_number = i, new = length(added_cases), cases %>%
-                                               summarise(n_inc_sup = sum(incubating[id %ni% unsup_pop]),
-                                                         n_inc_unsup = sum(incubating[id %in% unsup_pop]),
-                                                         n_inf_sup = sum(infectious[id %ni% unsup_pop]),
-                                                         n_inf_unsup = sum(infectious[id %in% unsup_pop]),
-                                                         dead_sup = sum(died[id %ni% unsup_pop] & rec_or_dead[id %ni% unsup_pop]),
-                                                         dead_unsup = sum(died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop]),
-                                                         recovered_sup = sum(!died[id %ni% unsup_pop] & rec_or_dead[id %ni% unsup_pop]),
-                                                         recovered_unsup = sum(!died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop]))))
-    
-  }
+    new_data <- data.table(day_number = i, new = length(added_cases), cases %>%
+                             summarise(n_inc_sup = sum(incubating[id %in% sup_pop]),
+                                       n_inc_psup = sum(incubating[id %in% psup_pop]),
+                                       n_inc_unsup = sum(incubating[id %in% unsup_pop]),
+                                       n_inf_sup = sum(infectious[id %in% sup_pop]),
+                                       n_inf_psup = sum(infectious[id %in% psup_pop]),
+                                       n_inf_unsup = sum(infectious[id %in% unsup_pop]),
+                                       dead_sup = sum(died[id %in% sup_pop] & rec_or_dead[id %in% sup_pop]),
+                                       dead_psup = sum(died[id %in% psup_pop] & rec_or_dead[id %in% psup_pop]),
+                                       dead_unsup = sum(died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop]),
+                                       recovered_sup = sum(!died[id %in% sup_pop] & rec_or_dead[id %in% sup_pop]),
+                                       recovered_psup = sum(!died[id %in% psup_pop] & rec_or_dead[id %in% psup_pop]),
+                                       recovered_unsup = sum(!died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop])))
+    out_table <- rbind(out_table, new_data)
+    }
   return(out_table)
-  }
+}
 
 
 ptm <- proc.time() #time process
