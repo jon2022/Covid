@@ -39,20 +39,23 @@ simulate_population <- function(pop_size = 100000,   #population size
                                 ifr = 0.0066,  #IFR
                                 r0 = 2.5,  #R0
                                 r0_psup = 1.5,  #R0 with partial suppression (e.g. key workers)
-                                r0_sup = 0.1,  #R0_suppressed
-                                r0_group = 3,  #RO within groups
+                                r0_sup = 0.5,  #R0_suppressed
+                                r0_group = 3,  #R0 within groups
                                 gr_size = 4,  #set group size
                                 prop_sup = 0.9,  #proportion of population fully suppressing
-                                prop_psup = 1,  #proportion of remaining population partially suppressing
+                                prop_psup = 0.1,  #proportion of partially suppressing
                                 last_day = 90,  # how many days to simulate
                                 seed_numb = 1000  #starting population (seeding)
                                 )
 {
   #generate populations - all, unsupressed, partially supressed
+  if((prop_psup+prop_sup)>1){
+    stop("proportion supressed and partially suppressed must be <= 1")
+  }
   all_pop <- 1:pop_size
-  psup_pop <- sample(all_pop,(1-prop_sup)*pop_size*prop_psup)
-  unsup_pop <- sample(all_pop[all_pop %ni% psup_pop],(1-prop_sup)*pop_size*(1-prop_psup))
-  sup_pop <- all_pop[all_pop %ni% rbind(psup_pop,unsup_pop)]
+  psup_pop <- sample(all_pop,pop_size*prop_psup)
+  unsup_pop <- sample(all_pop[all_pop %ni% psup_pop],(1-(prop_sup+prop_psup))*pop_size)
+  sup_pop <- all_pop[all_pop %ni% c(psup_pop,unsup_pop)]
   
   #mean infectious period
   inf_mean <- test_mean(log(inf_med),sdlog(inf_med, inf_95))
@@ -97,6 +100,8 @@ simulate_population <- function(pop_size = 100000,   #population size
                                       recovered_sup = sum(!died[id %in% sup_pop] & rec_or_dead[id %in% sup_pop]),
                                       recovered_psup = sum(!died[id %in% psup_pop] & rec_or_dead[id %in% psup_pop]),
                                       recovered_unsup = sum(!died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop])))
+  out_table$currentR0 <- r0
+  
 
 
 
@@ -144,7 +149,9 @@ simulate_population <- function(pop_size = 100000,   #population size
              rec_or_dead = days_into >= (incubation + infective))
     
     
-    new_data <- data.table(day_number = i, new = length(added_cases), cases %>%
+    new_data <- data.table(day_number = i, 
+                           new = length(added_cases),
+                           cases %>%
                              summarise(n_inc_sup = sum(incubating[id %in% sup_pop]),
                                        n_inc_psup = sum(incubating[id %in% psup_pop]),
                                        n_inc_unsup = sum(incubating[id %in% unsup_pop]),
@@ -157,6 +164,7 @@ simulate_population <- function(pop_size = 100000,   #population size
                                        recovered_sup = sum(!died[id %in% sup_pop] & rec_or_dead[id %in% sup_pop]),
                                        recovered_psup = sum(!died[id %in% psup_pop] & rec_or_dead[id %in% psup_pop]),
                                        recovered_unsup = sum(!died[id %in% unsup_pop] & rec_or_dead[id %in% unsup_pop])))
+    new_data$currentR0 <- new_data$new*inf_mean/(new_data$n_inf_unsup+new_data$n_inf_psup+new_data$n_inf_sup)
     out_table <- rbind(out_table, new_data)
     }
   return(out_table)
