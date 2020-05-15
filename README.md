@@ -9,4 +9,6 @@ The model considers four different R0 values that apply to different portions of
 
 These are potentially important issues because different suppression measures may affect different aspects of the spread.  For example, allowing wider family groups to combine may increase the effective household size, allowing greater freedom of movement or intensive contact tracing may increase the general R0 of the supressed population.  Re-opening certain industries may increase the size of the population that are partially suppressed and changes to PPE availability may alter the R0 of the partially suppressed population.
 
-This is a model in development and comments, corrections and suggestions would be welcome. 
+This is a model in development and comments, corrections and suggestions would be welcome.
+
+There are two files - the first is the model itself "SEIR_InitialModel.R" and "example_simulations.R", which has an example of testing a set of parameters and providing graphical comparisons of the output.
