@@ -50,7 +50,7 @@ simulate_population <- function(pop_size = 100000,   #population size
 {
   #generate populations - all, unsupressed, partially supressed
   if((prop_psup+prop_sup)>1){
-    stop("proportion supressed and partially suppressed must be <= 1")
+    stop("sum of proportion supressed and partially suppressed must be <= 1")
   }
   all_pop <- 1:pop_size
   psup_pop <- sample(all_pop,pop_size*prop_psup)
@@ -170,68 +170,3 @@ simulate_population <- function(pop_size = 100000,   #population size
   return(out_table)
 }
 
-
-ptm <- proc.time() #time process
-sim_result1 <- simulate_population(gr_size = 1)
-sim_result2 <- simulate_population(gr_size = 2)
-sim_result4 <- simulate_population(gr_size = 4)
-sim_result10 <- simulate_population(gr_size = 10)
-proc.time() - ptm
-
-p1<-ggplot() + 
-  geom_point(mapping = aes(x=sim_result1$day_number, y=sim_result1$dead_sup, color = "Group size = 1"))+
-  geom_point(mapping = aes(x=sim_result2$day_number, y=sim_result2$dead_sup, color = "Group size = 2"))+
-  geom_point(mapping = aes(x=sim_result4$day_number, y=sim_result4$dead_sup, color = "Group size = 4"))+
-  geom_point(mapping = aes(x=sim_result10$day_number, y=sim_result10$dead_sup, color = "Group size = 10"))+
-  # geom_point(mapping = aes(x=day_number, y=n_inf_sup, color = "Infectious"))+
-  # geom_point(mapping = aes(x=day_number, y=new, color = "New cases"))+
-  xlab("days from seeding")+
-  ylab("number of deaths")
-  # ggtitle(paste0("graph with R0 = ",r0," suppressed"))
-
-p2<-ggplot(data=x) + 
-  geom_point(mapping = aes(x=day_number, y=recovered_unsup, color = "Recovered"))+
-  geom_point(mapping = aes(x=day_number, y=dead_unsup, color = "Deaths"))+
-  geom_point(mapping = aes(x=day_number, y=n_inf_unsup, color = "Infectious"))+
-  # geom_point(mapping = aes(x=day_number, y=pop_size-pop_size_sup-recovered_unsup-dead_unsup-n_inf_unsup-n_inc_unsup, color = "Susceptible"))+
-  xlab("days from seeding")+
-  ylab("number of cases")
-  # ggtitle(paste0("graph with R0 = ",r0," unsuppressed"))
-
-p3<-ggplot(data=x) + 
-  geom_point(mapping = aes(x=day_number, y=recovered_unsup+recovered_sup, color = "Recovered"))+
-  geom_point(mapping = aes(x=day_number, y=dead_unsup+dead_sup, color = "Deaths"))+
-  geom_point(mapping = aes(x=day_number, y=n_inf_unsup+n_inf_sup, color = "Infectious"))+
-  geom_point(mapping = aes(x=day_number, y=new, color = "New cases"))+
-  # geom_point(mapping = aes(x=day_number, y=pop_size-recovered_unsup-dead_unsup-n_inf_unsup-n_inc_unsup-recovered_sup-dead_sup-n_inf_sup-n_inc_sup, color = "Susceptible"))+
-  xlab("days from seeding")+
-  ylab("number of cases")
-  # ggtitle(paste0("R0 = ",r0," all"))
-
-grid.arrange(p1,p2,p3, ncol=3,nrow=1)
-p4<-p1
-p5<-p1
-p6 <- p1
-grid.arrange(p4,p5,p6,p1, ncol=2,nrow=2)
-
-###########################################################
-#run to test that parameters work
-#set median and 95th quantile
-test_med <- 5
-test_quant <- 12
-
-#sample of vector of 1,000,000 with distribution
-x <- rlnorm(1000000, log(test_med), sdlog(test_med, test_quant))
-
-#print results
-summary(x)
-#sample mean
-test_mean(log(test_med),sdlog(test_med, test_quant))
-#above 95th
-sum(x>test_quant)/1000000
-
-rm(list=ls())
-
-make_cases(4,7,7,10,0)
-
-grid.arrange(p1,p2,p3, ncol=3,nrow=1)
